@@ -11,6 +11,7 @@ public class Dictionary {
         buckets = new int[capacity];
         entries = new Object[capacity][3]; // 0 - Object, can be null  1 - Key can't be null  2 - Next, can be null
         setValuesDefault();
+        setDefaultIndexes();
     }
 
     public Dictionary(int capacity) {
@@ -18,6 +19,7 @@ public class Dictionary {
         buckets = new int[capacity];
         entries = new Object[capacity][3];
         setValuesDefault();
+        setDefaultIndexes();
     }
 
     public boolean containsKey(String key) {
@@ -154,8 +156,10 @@ public class Dictionary {
             if(entries[i][1] == null)
                 return i;
         }
+        capacity = buckets.length * 2;
         buckets = ArrayUtils.expandArray(buckets);
         entries = ArrayUtils.expandArray(entries);
+        setValuesDefault();
         return getNearestFreeIndex();
     }
 
@@ -168,9 +172,12 @@ public class Dictionary {
 
     private void setValuesDefault() {
         for(int i = 0; i < entries.length; i++) {
-            entries[i][2] = -1;
+            if(entries[i][2] == null)
+                entries[i][2] = -1;
         }
+    }
 
+    private void setDefaultIndexes() {
         for(int i = 0; i < buckets.length; i++) {
             buckets[i] = -1;
         }

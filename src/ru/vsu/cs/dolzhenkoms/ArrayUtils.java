@@ -16,6 +16,9 @@ public class ArrayUtils {
         for(int i = 0; i < array.length; i++)
             expandedArray[i] = array[i];
 
+        for(int i = array.length; i < expandedArray.length; i++)
+            expandedArray[i] = -1;
+
         return expandedArray;
     }
 
