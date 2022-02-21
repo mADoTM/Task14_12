@@ -1,81 +1,178 @@
 package ru.vsu.cs.dolzhenkoms;
 
-import java.lang.reflect.Array;
-
 public class Dictionary {
-    private String[] keys;
-    private Object[] values;
+    private int capacity;
+
+    private int[] buckets;
+    private Object[][] entries;
 
     public Dictionary() {
-        keys = new String[10];
-        values = new Object[10];
+        capacity = 10;
+        buckets = new int[capacity];
+        entries = new Object[capacity][3]; // 0 - Object, can be null  1 - Key can't be null  2 - Next, can be null
+        setValuesDefault();
     }
 
     public Dictionary(int capacity) {
-        keys = new String[capacity];
-        values = new Object[capacity];
+        this.capacity = capacity;
+        buckets = new int[capacity];
+        entries = new Object[capacity][3];
+        setValuesDefault();
     }
 
-    public Object getValue(String key) {
-        if(containsKey(key)) {
-            int index = getIndexOfKey(key);
-            return values[index];
+    public boolean containsKey(String key) {
+        int hashCode = getHashCode(key);
+        int entriesIndex = buckets[hashCode];
+
+        if(entriesIndex != -1) {
+            if (entries[entriesIndex][1] == null)
+                return false;
+
+            if(entries[entriesIndex][1] == key)
+                return true;
+
+            while ((int)entries[entriesIndex][2] != -1) { // Loop the list
+                entriesIndex = (int)entries[entriesIndex][2];
+
+                if(entries[entriesIndex][1] == key)
+                    return true;
+            }
+
+            return false;
         }
-        return null;
+
+        return false;
+    }
+
+    public void add(String key, Object value) {
+        if (containsKey(key)) return;
+
+        int hashCode = getHashCode(key);
+        int entriesIndex = buckets[hashCode];
+
+        if(entriesIndex == -1) {
+            int nearestFreeIndex = getNearestFreeIndex();
+            buckets[hashCode] = nearestFreeIndex;
+
+            entries[nearestFreeIndex][1] = key;
+            entries[nearestFreeIndex][0] = value;
+
+            return;
+        }
+
+        if(entries[entriesIndex][1] == null) {
+            entries[entriesIndex][1] = key;
+            entries[entriesIndex][0] = value;
+            return;
+        }
+
+        int lastNextIndex = getIndexWithoutNext(entriesIndex);
+        int nearestFreeIndex = getNearestFreeIndex();
+
+        entries[lastNextIndex][2] = nearestFreeIndex;
+
+        entries[nearestFreeIndex][0] = value;
+        entries[nearestFreeIndex][1] = key;
+
+    }
+
+    public void remove(String key) {
+        if (!containsKey(key)) return;
+
+        int hashCode = getHashCode(key);
+        int entriesIndex = buckets[hashCode];
+
+        if(entries[entriesIndex][1] != key) {
+            while ((int)entries[entriesIndex][2] != -1) { // Loop the list
+                int previousIndex = entriesIndex;
+                entriesIndex = (int)entries[entriesIndex][2];
+
+                if(entries[entriesIndex][1] == key) {
+                    entries[entriesIndex][1] = null;
+
+                    if ((int) entries[entriesIndex][2] == -1) {
+                        entries[previousIndex][2] = -1;
+                    }
+                    else {
+                        entries[previousIndex][2] = entries[entriesIndex][2];
+                    }
+                    return;
+                }
+            }
+        }
+
+        buckets[hashCode] = (int) entries[entriesIndex][2];
     }
 
     public void setValue(String key, Object value) {
         if(containsKey(key)) {
-            int index = getIndexOfKey(key);
-            values[index] = value;
+            int hashCode = getHashCode(key);
+            int entriesIndex = buckets[hashCode];
+
+            if(entries[entriesIndex][1] != key) {
+                while ((int)entries[entriesIndex][2] != -1) { // Loop the list
+                    entriesIndex = (int)entries[entriesIndex][2];
+
+                    if(entries[entriesIndex][1] == key) {
+                        entries[entriesIndex][0] = value;
+                        return;
+                    }
+                }
+            }
+
+            entries[entriesIndex][0] = value;
         }
         else {
             add(key, value);
         }
     }
 
-    public void add(String key, Object value) {
-        if (containsKey(key)) return;
-        int index = getNearestFreeIndex();
+    public Object getValue(String key) {
+        if (!containsKey(key)) return null;
 
-        keys[index] = key;
-        values[index] = value;
-    }
+        int hashCode = getHashCode(key);
+        int entriesIndex = buckets[hashCode];
 
-    public void remove(String key) {
-        if (!containsKey(key)) return;
+        if(entries[entriesIndex][1] != key) {
+            while ((int)entries[entriesIndex][2] != -1) { // Loop the list
+                entriesIndex = (int)entries[entriesIndex][2];
 
-        int index = getIndexOfKey(key);
-
-        keys[index] = null;
-        values[index] = null;
-    }
-
-    public boolean containsKey(String expectedKey) {
-        for (String key : keys) {
-            if (key == expectedKey)
-                return true;
+                if(entries[entriesIndex][1] == key)
+                    return entries[entriesIndex][0];
+            }
         }
-        return false;
+
+        return entries[entriesIndex][0];
+    }
+
+    private int getHashCode(String key) {
+        return (key.length() * 10 + 3) % capacity; // 10 and 3 are absolutely random numbers
     }
 
     private int getNearestFreeIndex() {
-        for(int i = 0; i < keys.length; i++) {
-            if(keys[i] == null)
+        for(int i = 0; i < capacity; i++) {
+            if(entries[i][1] == null)
                 return i;
         }
-
-        keys = ArrayUtils.expandArray(keys);
-        values = ArrayUtils.expandArray(values);
-
+        buckets = ArrayUtils.expandArray(buckets);
+        entries = ArrayUtils.expandArray(entries);
         return getNearestFreeIndex();
     }
 
-    private int getIndexOfKey(String key) {
-        for(int i = 0; i < keys.length; i++)
-            if(keys[i] == key)
-                return i;
+    private int getIndexWithoutNext(int index) {
+        if ((int)entries[index][2] != -1)
+            return getIndexWithoutNext((int)entries[index][2]);
 
-        return -1;
+        return index;
+    }
+
+    private void setValuesDefault() {
+        for(int i = 0; i < entries.length; i++) {
+            entries[i][2] = -1;
+        }
+
+        for(int i = 0; i < buckets.length; i++) {
+            buckets[i] = -1;
+        }
     }
 }
